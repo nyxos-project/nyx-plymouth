@@ -1,0 +1,204 @@
+# Nyx boot splash: the theme's background, the eclipse fading in at the centre, a thin
+# progress line under it, and a quiet password field for disk unlock. Nothing else.
+# The generator fills in the @…@ values for each Nyx theme.
+
+Window.SetBackgroundTopColor(@BG@);
+Window.SetBackgroundBottomColor(@BG@);
+
+global.fps = 50;
+global.frame = 0;
+global.layout_width = 0;
+global.layout_height = 0;
+
+# The mark, sized to the screen: about a sixth of its shorter side.
+mark.original = Image("mark.png");
+mark.sprite = Sprite();
+mark.sprite.SetOpacity(0);
+
+fun size_mark() {
+  side = Math.Min(Window.GetWidth(), Window.GetHeight());
+  size = Math.Int(side * 0.16);
+  if (size < 96) size = 96;
+  if (size > 320) size = 320;
+  mark.size = size;
+  mark.image = mark.original.Scale(size, size);
+  mark.sprite.SetImage(mark.image);
+}
+
+# The progress line: a faint track and the accent over it.
+track.original = Image("track.png");
+bar.original = Image("bar.png");
+track.sprite = Sprite();
+bar.sprite = Sprite();
+global.line_width = 160;
+global.progress = 0;
+global.shown_progress = 0;
+global.fake_active = 1;
+global.fake_limit = 0.7;
+global.fake_seconds = 12.0;
+global.progress_start = 0.0;
+
+fun draw_progress() {
+  w = Math.Int(global.line_width * global.shown_progress);
+  if (w < 1) w = 1;
+  bar.sprite.SetImage(bar.original.Scale(w, bar.original.GetHeight()));
+}
+
+# The password field and its dots.
+field.image = Image("field.png");
+field.sprite = Sprite(field.image);
+field.sprite.SetOpacity(0);
+dot.image = Image("dot.png");
+dots = [];
+prompt.sprite = Sprite();
+prompt.sprite.SetOpacity(0);
+global.asking = 0;
+
+# Messages (fsck, errors) stay small and dim at the bottom.
+message.sprite = Sprite();
+message.sprite.SetOpacity(0);
+
+fun layout() {
+  global.layout_width = Window.GetWidth();
+  global.layout_height = Window.GetHeight();
+  size_mark();
+  cx = global.layout_width / 2;
+  cy = global.layout_height / 2;
+  mark.x = cx - mark.size / 2;
+  mark.y = cy - mark.size / 2 - mark.size * 0.15;
+  mark.sprite.SetPosition(mark.x, mark.y, 10);
+
+  line_y = mark.y + mark.size + Math.Int(mark.size * 0.28);
+  track.sprite.SetImage(track.original.Scale(global.line_width, track.original.GetHeight()));
+  track.sprite.SetPosition(cx - global.line_width / 2, line_y, 11);
+  bar.sprite.SetPosition(cx - global.line_width / 2, line_y, 12);
+  draw_progress();
+
+  field.x = cx - field.image.GetWidth() / 2;
+  field.y = line_y - field.image.GetHeight() / 2;
+  field.sprite.SetPosition(field.x, field.y, 20);
+  prompt.sprite.SetPosition(cx - prompt.width / 2, field.y - 30, 21);
+  for (i = 0; dots[i]; i++) place_dot(i);
+
+  message.sprite.SetPosition(cx - message.width / 2, global.layout_height - 60, 30);
+}
+
+fun place_dot(i) {
+  gap = 14;
+  total = global.dot_count * gap;
+  x = global.layout_width / 2 - total / 2 + i * gap + 3;
+  dots[i].SetPosition(x, field.y + field.image.GetHeight() / 2 - dot.image.GetHeight() / 2, 22);
+}
+
+prompt.width = 0;
+message.width = 0;
+global.dot_count = 0;
+
+fun show_line(on) {
+  track.sprite.SetOpacity(on);
+  bar.sprite.SetOpacity(on);
+}
+
+fun refresh() {
+  # A display that appears late (a dock's monitor) makes the window grow: lay out again.
+  if (Window.GetWidth() != global.layout_width || Window.GetHeight() != global.layout_height) layout();
+  global.frame++;
+  t = global.frame / global.fps;
+
+  # Fade the mark in over 0.8 s, easing out.
+  if (t < 0.8) {
+    a = t / 0.8;
+    mark.sprite.SetOpacity(1 - (1 - a) * (1 - a));
+  } else {
+    mark.sprite.SetOpacity(1);
+  }
+
+  mode = Plymouth.GetMode();
+  if (mode != "boot" && mode != "resume") {
+    show_line(0);
+    return;
+  }
+  if (global.asking == 0) show_line(Math.Min(t / 0.8, 1));
+
+  # Until the real progress moves, ease towards 70% over twelve seconds.
+  if (global.fake_active == 1) {
+    r = Math.Min(t / global.fake_seconds, 1);
+    fake = (1 - (1 - r) * (1 - r)) * global.fake_limit;
+    if (fake > global.shown_progress) {
+      global.shown_progress = fake;
+      draw_progress();
+    }
+  }
+}
+
+Plymouth.SetRefreshFunction(refresh);
+
+fun on_progress(duration, progress) {
+  # Progress stands still while the disk is unlocked; follow it once it moves past the fake.
+  if (global.progress_start == 0.0) global.progress_start = duration;
+  if (duration > global.progress_start && progress > global.shown_progress) {
+    global.fake_active = 0;
+    global.shown_progress = progress;
+    draw_progress();
+  }
+}
+
+Plymouth.SetBootProgressFunction(on_progress);
+
+fun hide_password() {
+  global.asking = 0;
+  field.sprite.SetOpacity(0);
+  prompt.sprite.SetOpacity(0);
+  for (i = 0; dots[i]; i++) dots[i].SetOpacity(0);
+}
+
+fun on_normal() {
+  hide_password();
+}
+
+fun on_password(text, bullets) {
+  global.asking = 1;
+  show_line(0);
+  field.sprite.SetOpacity(1);
+  if (text == "") text = "Password";
+  img = Image.Text(text, @DIM@, 1, "Inter 11");
+  prompt.width = img.GetWidth();
+  prompt.sprite.SetImage(img);
+  prompt.sprite.SetPosition(global.layout_width / 2 - prompt.width / 2, field.y - 30, 21);
+  prompt.sprite.SetOpacity(1);
+  shown = bullets;
+  if (shown > 18) shown = 18;
+  global.dot_count = shown;
+  for (i = 0; dots[i]; i++) dots[i].SetOpacity(0);
+  for (i = 0; i < shown; i++) {
+    if (!dots[i]) dots[i] = Sprite(dot.image);
+    place_dot(i);
+    dots[i].SetOpacity(1);
+  }
+}
+
+Plymouth.SetDisplayNormalFunction(on_normal);
+Plymouth.SetDisplayPasswordFunction(on_password);
+
+fun on_message(text) {
+  img = Image.Text(text, @DIM@, 1, "Inter 10");
+  message.width = img.GetWidth();
+  message.sprite.SetImage(img);
+  message.sprite.SetPosition(global.layout_width / 2 - message.width / 2, global.layout_height - 60, 30);
+  message.sprite.SetOpacity(1);
+}
+
+fun on_hide_message(text) {
+  message.sprite.SetOpacity(0);
+}
+
+Plymouth.SetDisplayMessageFunction(on_message);
+Plymouth.SetHideMessageFunction(on_hide_message);
+
+fun on_quit() {
+  show_line(0);
+}
+
+Plymouth.SetQuitFunction(on_quit);
+
+layout();
