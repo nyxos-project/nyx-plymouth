@@ -31,7 +31,7 @@ inner='
   plymouth show-splash
   shot 0.3 fade
   shot 3 boot
-  plymouth ask-for-password --prompt="Unlock disk" >/dev/null 2>&1 &
+  plymouth ask-for-password --prompt="Please enter passphrase for disk NyxOS (cryptroot):" >/dev/null 2>&1 &
   shot 1 password
   plymouth display-message --text="Checking the disk…"
   shot 0.5 message

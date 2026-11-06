@@ -161,6 +161,8 @@ fun on_password(text, bullets) {
   show_line(0);
   field.sprite.SetOpacity(1);
   if (text == "") text = "Password";
+  # systemd-cryptsetup's "Please enter passphrase for disk NAME (cryptroot):" in short.
+  if (text.SubString(0, 32) == "Please enter passphrase for disk") text = "Disk passphrase";
   img = Image.Text(text, @DIM@, 1, "Inter 11");
   prompt.width = img.GetWidth();
   prompt.sprite.SetImage(img);
