@@ -1,11 +1,14 @@
 # Nyx Plymouth for nyx-packages (copy to pkgs/nyx-plymouth.nix). Inputs: this repo as
-# `src`, nyx-design as `design` (for the theme colours and the mark).
+# `src`, the `nyx-theme` package (the theme engine's command), and the system logo as
+# `logo` when one is set (the Nyx mark otherwise).
 {
+  lib,
   stdenvNoCC,
   src,
-  design,
+  nyx-theme,
   python3,
   librsvg,
+  logo ? null,
 }:
 stdenvNoCC.mkDerivation {
   pname = "nyx-plymouth";
@@ -16,8 +19,9 @@ stdenvNoCC.mkDerivation {
     librsvg
   ];
   buildPhase = ''
-    python3 tools/generate.py --design ${design} --out build/themes \
-      --install-root $out/share/plymouth/themes
+    python3 tools/generate.py --nyx-theme ${lib.getExe nyx-theme} \
+      ${lib.optionalString (logo != null) "--logo ${logo}"} \
+      --out build/themes --install-root $out/share/plymouth/themes
   '';
   installPhase = ''
     mkdir -p $out/share/plymouth/themes
