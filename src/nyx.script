@@ -1,5 +1,7 @@
-# Nyx boot splash: the theme's background, the eclipse fading in at the centre, a thin
-# progress line under it, and a quiet password field for disk unlock. Nothing else.
+# Nyx boot splash: the theme's background, the NYXOS wordmark fading in at the centre
+# exactly where the desktop wallpaper has it, a thin progress line under it, and a
+# quiet password field for disk unlock. Nothing else. With a system logo instead of
+# the wordmark, the logo is square and sits a little above the centre.
 # The generator fills in the @…@ values for each Nyx theme.
 
 Window.SetBackgroundTopColor(@BG@);
@@ -9,19 +11,29 @@ global.fps = 50;
 global.frame = 0;
 global.layout_width = 0;
 global.layout_height = 0;
+global.wordmark = @WORDMARK@;
 
-# The mark, sized to the screen: about a sixth of its shorter side.
 mark.original = Image("mark.png");
 mark.sprite = Sprite();
 mark.sprite.SetOpacity(0);
 
 fun size_mark() {
-  side = Math.Min(Window.GetWidth(), Window.GetHeight());
-  size = Math.Int(side * 0.16);
-  if (size < 96) size = 96;
-  if (size > 320) size = 320;
-  mark.size = size;
-  mark.image = mark.original.Scale(size, size);
+  if (global.wordmark) {
+    # mark.png is the wordmark as it is on the 3840 × 2160 wallpaper, which the desktop
+    # scales to cover the screen: scale it the same way.
+    scale = Math.Max(Window.GetWidth() / 3840, Window.GetHeight() / 2160);
+    mark.width = Math.Int(mark.original.GetWidth() * scale);
+    mark.height = Math.Int(mark.original.GetHeight() * scale);
+  } else {
+    # The logo: about a sixth of the screen's shorter side.
+    side = Math.Min(Window.GetWidth(), Window.GetHeight());
+    size = Math.Int(side * 0.16);
+    if (size < 96) size = 96;
+    if (size > 320) size = 320;
+    mark.width = size;
+    mark.height = size;
+  }
+  mark.image = mark.original.Scale(mark.width, mark.height);
   mark.sprite.SetImage(mark.image);
 }
 
@@ -31,6 +43,7 @@ bar.original = Image("bar.png");
 track.sprite = Sprite();
 bar.sprite = Sprite();
 global.line_width = 160;
+global.line_height = 2;
 global.progress = 0;
 global.shown_progress = 0;
 global.fake_active = 1;
@@ -41,7 +54,7 @@ global.progress_start = 0.0;
 fun draw_progress() {
   w = Math.Int(global.line_width * global.shown_progress);
   if (w < 1) w = 1;
-  bar.sprite.SetImage(bar.original.Scale(w, bar.original.GetHeight()));
+  bar.sprite.SetImage(bar.original.Scale(w, global.line_height));
 }
 
 # The password field and its dots.
@@ -64,18 +77,30 @@ fun layout() {
   size_mark();
   cx = global.layout_width / 2;
   cy = global.layout_height / 2;
-  mark.x = cx - mark.size / 2;
-  mark.y = cy - mark.size / 2 - mark.size * 0.15;
+  mark.x = Math.Int(cx - mark.width / 2);
+  if (global.wordmark) {
+    mark.y = Math.Int(cy - mark.height / 2);
+    # The line: 16% of the width, at 64% of the height; the password field just below
+    # the wordmark, where the line was.
+    global.line_width = Math.Int(global.layout_width * 0.16);
+    global.line_height = Math.Max(2, Math.Int(global.layout_height / 540));
+    line_y = Math.Int(global.layout_height * 0.64);
+    field.y = line_y - 4;
+  } else {
+    mark.y = Math.Int(cy - mark.height / 2 - mark.height * 0.15);
+    global.line_width = 160;
+    global.line_height = 2;
+    line_y = mark.y + mark.height + Math.Int(mark.height * 0.28);
+    field.y = line_y - field.image.GetHeight() / 2;
+  }
   mark.sprite.SetPosition(mark.x, mark.y, 10);
 
-  line_y = mark.y + mark.size + Math.Int(mark.size * 0.28);
-  track.sprite.SetImage(track.original.Scale(global.line_width, track.original.GetHeight()));
+  track.sprite.SetImage(track.original.Scale(global.line_width, global.line_height));
   track.sprite.SetPosition(cx - global.line_width / 2, line_y, 11);
   bar.sprite.SetPosition(cx - global.line_width / 2, line_y, 12);
   draw_progress();
 
   field.x = cx - field.image.GetWidth() / 2;
-  field.y = line_y - field.image.GetHeight() / 2;
   field.sprite.SetPosition(field.x, field.y, 20);
   prompt.sprite.SetPosition(cx - prompt.width / 2, field.y - 30, 21);
   for (i = 0; dots[i]; i++) place_dot(i);
@@ -105,9 +130,9 @@ fun refresh() {
   global.frame++;
   t = global.frame / global.fps;
 
-  # Fade the mark in over 0.8 s, easing out.
-  if (t < 0.8) {
-    a = t / 0.8;
+  # Fade the mark in over 1.2 s, easing out.
+  if (t < 1.2) {
+    a = t / 1.2;
     mark.sprite.SetOpacity(1 - (1 - a) * (1 - a));
   } else {
     mark.sprite.SetOpacity(1);

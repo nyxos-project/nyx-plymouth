@@ -6,9 +6,10 @@
 Asks the Nyx theme engine (the `nyx-theme` command from nyx-design) for the built-in
 themes, each one's resolved colours, and the logo drawn in them, and writes
 DIR/<theme>/ with the script, its .plymouth file and the images, ready for
-/usr/share/plymouth/themes. The logo is the Nyx mark, or FILE (an SVG drawn in
-`currentColor` takes each theme's logo colour; a PNG is used as it is). Needs
-rsvg-convert.
+/usr/share/plymouth/themes. The splash shows the NYXOS wordmark exactly as the desktop
+wallpaper does (nyx-wallpapers), so the boot ends on the desktop's picture. With
+--logo it shows FILE instead, square (an SVG drawn in `currentColor` takes each theme's
+logo colour; a PNG is used as it is). Needs rsvg-convert.
 """
 
 import argparse
@@ -21,6 +22,12 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
 
+# The wordmark as nyx-wallpapers draws it on a 3840 × 2160 wallpaper: 24 px a cell.
+WORDMARK_CELL = 24
+
+# Backgrounds that differ from the theme's surface, as in nyx-wallpapers' tools/wordmark.py.
+BACKGROUND = {"catppuccin-mocha": "#181825"}
+
 
 def rgb(hexcolor):
     h = hexcolor.lstrip("#")
@@ -28,7 +35,7 @@ def rgb(hexcolor):
 
 
 def script_color(hexcolor):
-    return ", ".join(f"{c:.3f}" for c in rgb(hexcolor))
+    return ", ".join(f"{c:.4f}" for c in rgb(hexcolor))
 
 
 def render(svg, out, size):
@@ -70,7 +77,7 @@ def build(engine, theme, out_root, install_root):
     tid = theme["id"]
     name = theme["name"]
     c = engine.colors(tid)
-    bg = c["surface.primary"]
+    bg = BACKGROUND.get(tid, c["surface.primary"])
     accent = c["accent.primary"]
     text = c["text.primary"]
     dim = c["text.secondary"]
@@ -79,7 +86,12 @@ def build(engine, theme, out_root, install_root):
     out = out_root / tid
     out.mkdir(parents=True, exist_ok=True)
 
-    render(engine.logo_svg(tid, 640), out / "mark.png", 640)
+    if engine.logo:
+        render(engine.logo_svg(tid, 640), out / "mark.png", 640)
+    else:
+        mark = (HERE / "src/wordmark.svg").read_text().replace("currentColor", c.get("brand.logo", accent))
+        w, h = (int(v) for v in mark.split('viewBox="0 0 ', 1)[1].split('"', 1)[0].split())
+        render_wh(mark, out / "mark.png", w * WORDMARK_CELL, h * WORDMARK_CELL)
 
     render_wh(f'<svg xmlns="http://www.w3.org/2000/svg" width="8" height="2"><rect width="8" height="2" rx="1" fill="{text}" fill-opacity="0.12"/></svg>', out / "track.png", 8, 2)
     render_wh(f'<svg xmlns="http://www.w3.org/2000/svg" width="8" height="2"><rect width="8" height="2" rx="1" fill="{accent}"/></svg>', out / "bar.png", 8, 2)
@@ -93,6 +105,7 @@ def build(engine, theme, out_root, install_root):
 
     script = (HERE / "src/nyx.script").read_text()
     script = script.replace("@BG@", script_color(bg)).replace("@DIM@", script_color(dim))
+    script = script.replace("@WORDMARK@", "0" if engine.logo else "1")
     (out / f"{tid}.script").write_text(script)
     image_dir = f"{install_root}/{tid}"
     (out / f"{tid}.plymouth").write_text(

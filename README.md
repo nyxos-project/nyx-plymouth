@@ -1,15 +1,18 @@
 # Nyx Plymouth
 
-The NyxOS boot splash: the theme's background, the Nyx eclipse fading in at the
+The NyxOS boot splash: the theme's background, the NYXOS wordmark fading in at the
 centre, a thin progress line under it, and a quiet password field when the disk needs
-unlocking. No other text, no elaborate animation.
+unlocking. No other text, no elaborate animation. The wordmark is where and as large
+as on the desktop wallpaper (nyx-wallpapers), so the boot ends on the desktop's
+picture.
 
-![Boot and disk unlock in Nyx Dark](docs/preview.png)
+![Boot and disk unlock in Catppuccin Mocha](docs/preview.png)
 
 There's one Plymouth theme per built-in Nyx theme, built with the Nyx theme engine
-(the `nyx-theme` command from nyx-design): its resolved colours, and the system logo
-in its logo colour. The logo is the Nyx mark unless `--logo` names another (an SVG
-drawn in `currentColor` takes each theme's colour; a PNG is used as it is).
+(the `nyx-theme` command from nyx-design): its resolved colours, and the wordmark
+([src/wordmark.svg](src/wordmark.svg), the same as nyx-wallpapers' `wordmark/nyxos.svg`)
+in its logo colour. `--logo` puts another logo in its place, square (an SVG drawn in
+`currentColor` takes each theme's colour; a PNG is used as it is).
 
 ```sh
 tools/generate.py --nyx-theme ../nyx-design/target/debug/nyx-theme   # → build/themes/<theme>/
@@ -31,7 +34,9 @@ The boot theme is a system setting and can differ from the desktop theme.
 
 ## Files
 
-- `src/nyx.script`: the Plymouth script, with `@BG@` and `@DIM@` filled in per theme.
+- `src/nyx.script`: the Plymouth script, with `@BG@`, `@DIM@` and `@WORDMARK@` filled
+  in per theme.
+- `src/wordmark.svg`: the NYXOS wordmark, one unit a pixel of it.
 - `tools/generate.py`: builds the themes.
 - `tools/preview.sh`: screenshots the fade-in, the boot, the password prompt and a
   message.
